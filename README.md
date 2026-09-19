@@ -38,15 +38,51 @@ npm install
 npm start
 ```
 
-## Build an installer
+## Build a distributable
+
+`npm run dist` (`electron-builder`, produces a proper NSIS `.exe`
+installer) **requires Windows Developer Mode enabled** — electron-builder
+downloads a `winCodeSign` helper package that needs symlink creation
+privileges Windows only grants without admin/elevation once Developer
+Mode is on (Settings → Privacy & security → For developers). Without
+it, the build fails with `Cannot create symbolic link: A required
+privilege is not held by the client.`
+
+Until that's enabled on the build machine, use the portable fallback
+instead (no installer wizard, no signing pipeline, works everywhere):
 
 ```
-npm run dist
+npm install --save-dev electron-packager
+npx electron-packager . "Menux Print Agent" --platform=win32 --arch=x64 --out=dist-packager --overwrite --ignore="node_modules" --ignore="dist-packager" --ignore="\.git"
 ```
+
+This produces `dist-packager/Menux Print Agent-win32-x64/` — a portable
+folder (~500MB uncompressed, ~220MB zipped; this IS normal for a bundled
+Chromium/Electron runtime, not something to "fix"). Zip that folder and
+distribute it: the owner extracts it anywhere and double-clicks
+`Menux Print Agent.exe` directly, no install step, no admin rights
+needed. Where Menux hosts that zip for owners to download is up to the
+deployment — `dash/printers.php`'s network-agent wizard currently links
+to `{site}/wp-content/uploads/menux-print-agent/MenuxPrintAgent-win-x64.zip`
+on the Menux WordPress site itself (upload it there via cPanel File
+Manager after building — simplest option, no new hosting/CDN needed).
+Re-run this same command and re-upload whenever the agent's code
+changes; there's no auto-update mechanism yet (see limitations below).
+
+Once Developer Mode (or a CI runner that already has it, e.g. GitHub
+Actions' windows-latest images) is available, switch back to
+`npm run dist` for a real signed-look installer with a proper Start Menu
+shortcut instead of a raw portable folder.
 
 ## Known limitations (first pass — see the WordPress-side plan doc for
 the full phased roadmap this belongs to)
 
+- **No auto-update mechanism** — every code change means rebuilding the
+  zip/installer and re-uploading it; already-installed agents keep
+  running the old version until someone manually re-downloads.
+  `electron-updater` (pairs with `electron-builder`, not `-packager`) is
+  the standard fix once Developer Mode / a CI runner is available for
+  proper installer builds.
 - **USB/Bluetooth printers are not yet handled by this agent** — only
   network (TCP) printers. The plan's WebUSB/Web-Bluetooth phases handle
   those directly from an open dashboard browser tab instead; routing

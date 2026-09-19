@@ -1,4 +1,5 @@
 node_modules/
 dist/
+dist-packager/
 *.log
 .DS_Store
