@@ -190,3 +190,11 @@ phased roadmap this belongs to)
   `network_agent` printers at the same paired agent; each job carries
   its own `printer_target`), but only one machine can run this app per
   pairing token today — no "same printer, multiple agents" failover.
+
+## License & code signing
+
+MIT-licensed (see `LICENSE`) — required to qualify for free code signing
+through the SignPath Foundation (signpath.org/foundation), which is how
+the Windows installer is meant to get signed so SmartScreen stops showing
+"Unknown publisher". Signing is not wired into CI until the Foundation
+approves the project; until then installers are unsigned.
