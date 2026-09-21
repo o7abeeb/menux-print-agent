@@ -19,6 +19,19 @@ const DEFAULTS = {
   // Printer IP:port comes from Menux itself (each job's printer_target
   // field) — the agent holds no local printer config of its own, so
   // adding/editing a printer in the dashboard needs no agent-side change.
+
+  // ESC/POS "character code table" number the printer should use to
+  // interpret Arabic text (see printer.js) -- 21 (Epson's own numbering
+  // for WPC1256 Arabic, copied by most clone firmwares) is a reasonable
+  // default but genuinely varies by printer model/vendor. If a specific
+  // printer garbles Arabic, try a different value here rather than
+  // assuming Arabic printing is unsupported outright.
+  arabicCodepageTable: 21,
+
+  // Register with the OS to launch on login by default -- the #1 cause
+  // of "printing just stopped" reported in practice is the cashier PC
+  // rebooting and nobody remembering to reopen this app by hand.
+  startOnLogin: true,
 };
 
 function load() {

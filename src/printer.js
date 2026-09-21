@@ -5,19 +5,46 @@
  * that works across Epson/Xprinter/Star/etc. without per-vendor code.
  */
 const net = require('net');
+const iconv = require('iconv-lite');
 
 const ESC = 0x1b;
 const GS = 0x1d;
 
-// Minimal, universal ESC/POS command set: init, left-align text mode,
-// then feed + full paper cut. Deliberately NOT using bold/double-height/
-// centering codes here -- those vary more between clones than the basics
-// do, and a plain readable receipt beats a garbled "fancy" one.
-function buildReceipt(text) {
+// Most ESC/POS thermal printers (Epson command set and the countless
+// Chinese clones -- Xprinter/Gainscha/etc. -- that copy it) are single-
+// byte devices with a selectable "character code table"; they don't
+// understand UTF-8 multi-byte sequences at all, so Arabic text sent as
+// raw UTF-8 (the old behavior here) prints as garbage or blanks. Fix:
+// re-encode into a single-byte Arabic codepage the printer can actually
+// read, and tell it which table that is via ESC t n before the text.
+// CP1256 (Windows Arabic) is the most common one clone thermal printers
+// in this market ship support for; table number 21 is what Epson's own
+// numbering (and most clones copying it) call it, but this genuinely
+// varies by vendor/firmware -- exposed as a tunable setting
+// (arabicCodepageTable in store.js) rather than hardcoded, since there is
+// no single number that's guaranteed correct across every printer model.
+// If a specific printer still garbles Arabic with this on, the fix is to
+// try a different table number here, not to disable it outright.
+const ARABIC_RE = /[؀-ۿݐ-ݿࢠ-ࣿ]/;
+
+function buildReceipt(text, opts = {}) {
+  const codepageTable = Number.isInteger(opts.arabicCodepageTable) ? opts.arabicCodepageTable : 21;
   const init = Buffer.from([ESC, 0x40]); // ESC @ -- initialize printer
-  const body = Buffer.from(text.replace(/\n/g, '\r\n') + '\r\n\r\n\r\n', 'utf8');
+  const raw = text.replace(/\n/g, '\r\n') + '\r\n\r\n\r\n';
+
+  let body;
+  let codepageCmd = Buffer.alloc(0);
+  if (ARABIC_RE.test(raw)) {
+    // ESC t n -- select character code table (n = codepageTable), then
+    // send the body re-encoded into that same single-byte codepage.
+    codepageCmd = Buffer.from([ESC, 0x74, codepageTable]);
+    body = iconv.encode(raw, 'cp1256');
+  } else {
+    body = Buffer.from(raw, 'utf8');
+  }
+
   const cut = Buffer.from([GS, 0x56, 0x42, 0x00]); // GS V B 0 -- full cut w/ feed
-  return Buffer.concat([init, body, cut]);
+  return Buffer.concat([init, codepageCmd, body, cut]);
 }
 
 /**
@@ -25,9 +52,9 @@ function buildReceipt(text) {
  * Resolves/rejects instead of throwing so callers can ack success/failure
  * back to Menux per job.
  */
-function printToNetwork(ip, port, textOrBuffer, timeoutMs = 8000) {
+function printToNetwork(ip, port, textOrBuffer, timeoutMs = 8000, buildOpts = {}) {
   return new Promise((resolve, reject) => {
-    const data = Buffer.isBuffer(textOrBuffer) ? textOrBuffer : buildReceipt(String(textOrBuffer));
+    const data = Buffer.isBuffer(textOrBuffer) ? textOrBuffer : buildReceipt(String(textOrBuffer), buildOpts);
     const socket = new net.Socket();
     let settled = false;
 

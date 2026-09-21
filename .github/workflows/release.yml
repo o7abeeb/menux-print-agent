@@ -1,0 +1,28 @@
+name: Build & publish release
+
+# Runs on windows-latest specifically because it already has Developer
+# Mode / symlink privileges enabled out of the box -- the exact thing
+# that blocks `electron-builder`'s NSIS build (and therefore auto-update,
+# which needs a real NSIS installer, not the portable-zip fallback) on a
+# normal dev machine without elevation. Building here sidesteps that
+# entirely instead of requiring anyone to change a machine setting.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npx electron-builder --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
