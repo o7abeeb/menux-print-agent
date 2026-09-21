@@ -27,7 +27,8 @@
       "package.json"
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "artifactName": "Menux-Print-Agent-Setup.${ext}"
     },
     "mac": {
       "target": "dmg"
