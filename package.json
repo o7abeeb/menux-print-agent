@@ -1,6 +1,6 @@
 {
   "name": "menux-print-agent",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Menux Print Agent — small desktop app that pairs a restaurant's network printer(s) with a Menux account and prints incoming order jobs automatically.",
   "main": "src/main.js",
   "author": "Menux",
