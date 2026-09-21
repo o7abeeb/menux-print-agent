@@ -13,7 +13,7 @@ function configPath() {
 }
 
 const DEFAULTS = {
-  siteUrl: '',       // e.g. https://menu.example.com — the Menux site this agent talks to
+  siteUrl: 'https://menux.app', // the Menux platform this agent talks to (override only for staging/testing)
   pairingToken: '',  // issued by menux_printer_agent_pair (dash/printers.php "add printer" wizard)
   pollSeconds: 5,    // how often to check Menux for new jobs
   // Printer IP:port comes from Menux itself (each job's printer_target

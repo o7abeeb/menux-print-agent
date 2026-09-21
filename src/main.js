@@ -41,6 +41,7 @@ function openSetupWindow() {
     height: 420,
     resizable: false,
     title: 'Menux Print Agent — Setup',
+    icon: path.join(__dirname, '..', 'assets', 'tray-icon.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true },
   });
   setupWindow.setMenuBarVisibility(false);
@@ -176,7 +177,7 @@ app.whenReady().then(() => {
   // under assets/ so the app runs out of the box -- swap in a real
   // Menux-branded icon before shipping a build.
   const icon = nativeImage.createFromPath(path.join(__dirname, '..', 'assets', 'tray-icon.png'));
-  tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
+  tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon.resize({ width: 32, height: 32 }));
   updateTrayMenu();
 
   if (!isPaired()) openSetupWindow();

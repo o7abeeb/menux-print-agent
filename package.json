@@ -24,6 +24,7 @@
     "productName": "Menux Print Agent",
     "files": [
       "src/**/*",
+      "assets/**/*",
       "package.json"
     ],
     "win": {

@@ -17,13 +17,16 @@
 </head>
 <body>
   <h2>ربط وكيل الطباعة بحساب Menux</h2>
-  <p class="hint">افتح لوحة التحكم → الطابعات → إضافة طابعة → شبكة (عبر وكيل)، وانسخ رابط الموقع ورمز الإقران هنا.</p>
-
-  <label>رابط الموقع</label>
-  <input type="text" id="siteUrl" placeholder="https://menu.example.com">
+  <p class="hint">افتح لوحة التحكم ← الإعدادات ← الطابعات ← إضافة طابعة ← شبكة (عبر وكيل)، ثم انسخ رمز الإقران والصقه هنا.</p>
 
   <label>رمز الإقران</label>
   <input type="text" id="pairingToken" placeholder="pairing token">
+
+  <details style="margin-top:14px">
+    <summary style="font-size:12px;color:#777;cursor:pointer">خيارات متقدمة</summary>
+    <label>رابط الموقع</label>
+    <input type="text" id="siteUrl" placeholder="https://menux.app" dir="ltr">
+  </details>
 
   <button id="saveBtn">حفظ</button>
   <div id="status"></div>
@@ -35,12 +38,12 @@
       document.getElementById('pairingToken').value = cfg.pairingToken || '';
 
       document.getElementById('saveBtn').addEventListener('click', async function () {
-        var siteUrl = document.getElementById('siteUrl').value.trim();
+        var siteUrl = document.getElementById('siteUrl').value.trim() || 'https://menux.app';
         var pairingToken = document.getElementById('pairingToken').value.trim();
         var status = document.getElementById('status');
-        if (!siteUrl || !pairingToken) {
+        if (!pairingToken) {
           status.className = 'err';
-          status.textContent = 'الرجاء تعبئة الحقلين.';
+          status.textContent = 'الرجاء إدخال رمز الإقران.';
           return;
         }
         await window.menuxAgent.saveConfig({ siteUrl: siteUrl, pairingToken: pairingToken });
