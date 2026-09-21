@@ -38,7 +38,8 @@
     "publish": {
       "provider": "github",
       "owner": "o7abeeb",
-      "repo": "menux-print-agent"
+      "repo": "menux-print-agent",
+      "releaseType": "release"
     }
   }
 }
