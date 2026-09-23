@@ -91,7 +91,10 @@ async function pollOnce() {
       continue;
     }
     try {
-      await printToNetwork(host, parseInt(port, 10) || 9100, job.receipt_text || 'TEST PRINT', 8000, { arabicCodepageTable });
+      await printToNetwork(host, parseInt(port, 10) || 9100, job.receipt_text || 'TEST PRINT', 8000, {
+        arabicCodepageTable,
+        currencyImage: job.currency_image || null, // base64 ESC/POS bytes for SAR/OMR/AED's real symbol, see printer.js
+      });
       await api.ackJob(siteUrl, pairingToken, job.id, true);
       lastError = '';
       lastPrintedAt = new Date();

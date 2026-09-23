@@ -27,6 +27,15 @@ const GS = 0x1d;
 // try a different table number here, not to disable it outright.
 const ARABIC_RE = /[؀-ۿݐ-ݿࢠ-ࣿ]/;
 
+// menux_printer_render_receipt_text() (theme repo, include/menux-printers.php)
+// embeds this exact byte (ASCII 0x01, "start of heading" -- never
+// legitimate in printable order text) wherever the official SAR/OMR/AED
+// currency symbol belongs, since that symbol is a custom icon-font glyph
+// with no real character and can't be sent as text at all. opts.currencyImage
+// (base64 pre-rendered ESC/POS raster bytes for that one glyph, same value
+// reused at every occurrence) gets spliced in at each token position below.
+const CURRENCY_TOKEN_BYTE = 0x01;
+
 function buildReceipt(text, opts = {}) {
   const codepageTable = Number.isInteger(opts.arabicCodepageTable) ? opts.arabicCodepageTable : 21;
   const init = Buffer.from([ESC, 0x40]); // ESC @ -- initialize printer
@@ -41,6 +50,20 @@ function buildReceipt(text, opts = {}) {
     body = iconv.encode(raw, 'cp1256');
   } else {
     body = Buffer.from(raw, 'utf8');
+  }
+
+  if (opts.currencyImage) {
+    const imgBytes = Buffer.from(opts.currencyImage, 'base64');
+    const parts = [];
+    let start = 0;
+    for (let i = 0; i < body.length; i++) {
+      if (body[i] === CURRENCY_TOKEN_BYTE) {
+        parts.push(body.subarray(start, i), imgBytes);
+        start = i + 1;
+      }
+    }
+    parts.push(body.subarray(start));
+    body = Buffer.concat(parts);
   }
 
   const cut = Buffer.from([GS, 0x56, 0x42, 0x00]); // GS V B 0 -- full cut w/ feed
