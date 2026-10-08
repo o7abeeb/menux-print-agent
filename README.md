@@ -222,3 +222,24 @@ npx electron tools/try-receipt.js receipt.html image out.png
 
 (From a VS Code terminal, clear `ELECTRON_RUN_AS_NODE` first — VS Code sets it,
 and it makes Electron start as plain Node.)
+
+## Linux (0.2.1+)
+
+Each release also ships `Menux-Print-Agent.AppImage` (stable name, so
+`/releases/latest/download/Menux-Print-Agent.AppImage` always works). It
+updates itself like the Windows build.
+
+```
+chmod +x Menux-Print-Agent.AppImage
+./Menux-Print-Agent.AppImage
+```
+
+- Ubuntu 22.04+ needs FUSE 2 for AppImages: `sudo apt install libfuse2`
+  (`libfuse2t64` on 24.04).
+- GNOME hides tray icons unless the "AppIndicator and KStatusNotifierItem
+  Support" extension is on (Ubuntu ships it enabled).
+- USB printers: add the printer in the system's printer settings (CUPS),
+  with the vendor's Linux driver (Xprinter ships one). The agent then prints
+  to it exactly as on Windows. Network printers need no driver (raster over
+  IP:9100).
+- "Start automatically on login" writes `~/.config/autostart/menux-print-agent.desktop`.

@@ -26,3 +26,19 @@ jobs:
       - run: npx electron-builder --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Linux (AppImage, self-updating like the Windows installer). Runs after
+  # the Windows job so the two never race to create the same GitHub release;
+  # electron-builder then just adds the Linux files (+ latest-linux.yml) to it.
+  linux:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npx electron-builder --linux --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

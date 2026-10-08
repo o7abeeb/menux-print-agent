@@ -28,11 +28,49 @@ function isPaired() {
  */
 function applyStartOnLoginSetting() {
   const { startOnLogin } = store.load();
+  if (process.platform === 'linux') {
+    applyLinuxAutostart(!!startOnLogin);
+    return;
+  }
   try {
     app.setLoginItemSettings({ openAtLogin: !!startOnLogin, openAsHidden: true });
   } catch (e) {
     // Best-effort -- e.g. unsupported on this platform/packaging; the
     // app still runs fine manually either way.
+  }
+}
+
+/**
+ * Linux has no login-item API in Electron (setLoginItemSettings is
+ * Windows/macOS only): desktops start whatever has a .desktop file in
+ * ~/.config/autostart (XDG autostart spec). An AppImage runs from a
+ * temporary mount, so Exec must be the AppImage file itself ($APPIMAGE),
+ * which also stays right after the AppImage updates itself in place.
+ */
+function applyLinuxAutostart(enabled) {
+  const fs = require('fs');
+  const os = require('os');
+  const dir = path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'autostart');
+  const file = path.join(dir, 'menux-print-agent.desktop');
+  try {
+    if (!enabled) {
+      if (fs.existsSync(file)) fs.unlinkSync(file);
+      return;
+    }
+    const exe = process.env.APPIMAGE || process.execPath;
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(file, [
+      '[Desktop Entry]',
+      'Type=Application',
+      'Name=Menux Print Agent',
+      'Comment=Prints Menux orders automatically',
+      'Exec="' + exe.replace(/"/g, '\\"') + '" --hidden',
+      'Terminal=false',
+      'X-GNOME-Autostart-enabled=true',
+      '',
+    ].join('\n'), 'utf8');
+  } catch (e) {
+    // Best-effort, like the Windows/macOS path above.
   }
 }
 
