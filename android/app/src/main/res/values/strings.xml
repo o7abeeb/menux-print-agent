@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Menux Print</string>
+    <string name="title">ربط تطبيق الطباعة بحساب Menux</string>
+    <string name="hint_pair">في لوحة التحكم: الإعدادات ← الطابعات ← إضافة طابعة ← «برنامج الطباعة Menux»، ثم أنشئ رمز الربط والصقه هنا.</string>
+    <string name="token">رمز الربط</string>
+    <string name="printer">الطابعة</string>
+    <string name="t_usb">USB</string>
+    <string name="t_bt">بلوتوث</string>
+    <string name="t_lan">شبكة (LAN)</string>
+    <string name="choose_usb">اختيار طابعة USB</string>
+    <string name="choose_bt">اختيار طابعة بلوتوث</string>
+    <string name="bt_hint">أقرن الطابعة أولاً من إعدادات البلوتوث في الجهاز، ثم اخترها هنا.</string>
+    <string name="usb_hint">صِل الطابعة بالجهاز بكابل USB (OTG)، ثم اخترها هنا.</string>
+    <string name="lan_ip">عنوان IP للطابعة</string>
+    <string name="paper">عرض الورق</string>
+    <string name="paper80">80 مم</string>
+    <string name="paper58">58 مم</string>
+    <string name="none_selected">لم تُختر طابعة بعد</string>
+    <string name="test_print">طباعة تجريبية</string>
+    <string name="save">حفظ وتشغيل</string>
+    <string name="battery">السماح بالعمل الدائم في الخلفية</string>
+    <string name="battery_hint">حتى لا يوقف أندرويد التطبيق لتوفير البطارية.</string>
+    <string name="advanced">خيارات متقدمة</string>
+    <string name="site_url">رابط الموقع</string>
+    <string name="saved">حُفظ. التطبيق يعمل الآن في الخلفية ويطبع الطلبات وحده.</string>
+    <string name="need_token">أدخل رمز الربط أولاً.</string>
+    <string name="need_printer">اختر الطابعة أولاً.</string>
+    <string name="printing">جارٍ الطباعة…</string>
+    <string name="test_ok">أُرسلت صفحة الاختبار إلى الطابعة.</string>
+    <string name="failed">تعذّرت الطباعة: %1$s</string>
+    <string name="no_usb">لا توجد طابعة USB موصولة.</string>
+    <string name="no_bt">لا توجد طابعات بلوتوث مقترنة بالجهاز.</string>
+    <string name="usb_denied">رُفض إذن الوصول إلى طابعة USB.</string>
+    <string name="status_running">يعمل — بانتظار الطلبات</string>
+    <string name="status_last">آخر طباعة: %1$s</string>
+    <string name="status_error">خطأ: %1$s</string>
+    <string name="status_off">متوقف — احفظ الإعدادات لتشغيله</string>
+    <string name="update_available">يتوفر إصدار جديد (%1$s) — اضغط للتحميل</string>
+    <string name="notif_channel">الطباعة التلقائية</string>
+    <string name="notif_title">Menux يطبع الطلبات</string>
+    <string name="test_title">طباعة تجريبية — Test print</string>
+    <string name="test_body">تطبيق الطباعة يعمل — Print app is working</string>
+    <string name="cancel">إلغاء</string>
+</resources>
