@@ -4,6 +4,7 @@ const { autoUpdater } = require('electron-updater');
 const store = require('./store');
 const api = require('./api');
 const { printToNetwork } = require('./printer');
+const render = require('./render');
 
 let tray = null;
 let setupWindow = null;
@@ -11,6 +12,7 @@ let pollTimer = null;
 let lastError = '';
 let lastPrintedAt = null;
 let updateStatus = ''; // '', 'checking', 'available', 'downloading', 'ready', 'error'
+let polling = false; // one cycle at a time: printing can outlast the poll interval
 
 function isPaired() {
   const c = store.load();
@@ -37,8 +39,8 @@ function applyStartOnLoginSetting() {
 function openSetupWindow() {
   if (setupWindow) { setupWindow.focus(); return; }
   setupWindow = new BrowserWindow({
-    width: 460,
-    height: 420,
+    width: 480,
+    height: 660,
     resizable: false,
     title: 'Menux Print Agent — Setup',
     icon: path.join(__dirname, '..', 'assets', 'tray-icon.png'),
@@ -50,6 +52,18 @@ function openSetupWindow() {
 }
 
 ipcMain.handle('get-config', () => store.load());
+// Printers installed on this computer, for the setup window's picker.
+ipcMain.handle('list-printers', (evt) => render.listPrinters(evt.sender));
+// Prints a local test page on the chosen printer -- checks the printer,
+// the driver and the paper/cut settings without involving Menux at all.
+ipcMain.handle('test-print', async (_evt, printerName) => {
+  try {
+    await render.printHtmlToPrinter(render.testHtml(printerName || 'Default printer'), printerName || '');
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
 ipcMain.handle('save-config', (_evt, config) => {
   store.save(Object.assign({}, store.load(), config));
   applyStartOnLoginSetting();
@@ -65,7 +79,40 @@ ipcMain.handle('save-config', (_evt, config) => {
  * a stuck 'sent' job is a known limitation to revisit -- see README).
  */
 async function pollOnce() {
-  const { siteUrl, pairingToken } = store.load();
+  if (polling) return;
+  polling = true;
+  try {
+    await pollCycle();
+  } finally {
+    polling = false;
+  }
+}
+
+/**
+ * Where a job goes:
+ *  - the job has receipt_html (Menux sends it since agent 0.2): the real
+ *    receipt -- to a network printer when the printer's target in Menux is
+ *    an IP/host, otherwise to an OS printer: the one named in Menux, else
+ *    the one picked in this app's setup window, else the system default.
+ *  - no receipt_html (older Menux): the legacy plain-text network path.
+ */
+async function printJob(job, cfg) {
+  const target = String(job.printer_target || '').trim();
+  const net = render.parseNetworkTarget(target);
+  if (job.receipt_html) {
+    if (net) return render.printHtmlToNetwork(job.receipt_html, net.host, net.port);
+    return render.printHtmlToPrinter(job.receipt_html, target || cfg.printerName || '');
+  }
+  if (!net) throw new Error('no_printer_target');
+  return printToNetwork(net.host, net.port, job.receipt_text || 'TEST PRINT', 8000, {
+    arabicCodepageTable: cfg.arabicCodepageTable,
+    currencyImage: job.currency_image || null, // base64 ESC/POS bytes for SAR/OMR/AED's real symbol, see printer.js
+  });
+}
+
+async function pollCycle() {
+  const cfg = store.load();
+  const { siteUrl, pairingToken } = cfg;
   if (!siteUrl || !pairingToken) return;
 
   let jobs;
@@ -77,35 +124,19 @@ async function pollOnce() {
     return;
   }
 
-  const { arabicCodepageTable } = store.load();
   for (const job of jobs) {
-    // job.printer_target can be an IP ("192.168.1.50:9100") or a
-    // hostname ("kitchen-printer.local:9100") -- net.Socket#connect()
-    // resolves either via normal OS DNS, so a printer advertising itself
-    // via mDNS/Bonjour (if the OS's own mDNS responder resolves .local
-    // names, which Windows/macOS both do out of the box) works here with
-    // zero extra code, as a name that survives the printer's IP changing.
-    const [host, port] = String(job.printer_target || '').split(':');
-    if (!host) {
-      await api.ackJob(siteUrl, pairingToken, job.id, false, 'no_printer_target').catch(() => {});
-      continue;
-    }
     try {
-      await printToNetwork(host, parseInt(port, 10) || 9100, job.receipt_text || 'TEST PRINT', 8000, {
-        arabicCodepageTable,
-        currencyImage: job.currency_image || null, // base64 ESC/POS bytes for SAR/OMR/AED's real symbol, see printer.js
-      });
+      await printJob(job, cfg);
       await api.ackJob(siteUrl, pairingToken, job.id, true);
       lastError = '';
       lastPrintedAt = new Date();
     } catch (err) {
-      await api.ackJob(siteUrl, pairingToken, job.id, false, err.message).catch(() => {});
-      lastError = (job.printer_name || host) + ': ' + err.message;
+      await api.ackJob(siteUrl, pairingToken, job.id, false, String(err.message || err).slice(0, 180)).catch(() => {});
+      lastError = (job.printer_name || job.printer_target || 'printer') + ': ' + err.message;
     }
   }
   updateTrayMenu();
 }
-
 function restartPolling() {
   if (pollTimer) clearInterval(pollTimer);
   const { pollSeconds } = store.load();

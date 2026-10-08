@@ -2,53 +2,98 @@
 <html dir="rtl" lang="ar">
 <head>
 <meta charset="utf-8">
-<title>إعداد وكيل الطباعة</title>
+<title>إعداد برنامج الطباعة</title>
 <style>
-  body { font-family: -apple-system, "Segoe UI", Tahoma, sans-serif; padding: 20px; background: #FAF9F5; color: #222; }
-  h2 { font-size: 16px; margin: 0 0 4px; }
-  p.hint { font-size: 12px; color: #777; margin: 0 0 16px; }
-  label { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
-  input { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; }
-  button { margin-top: 18px; width: 100%; padding: 10px; border: none; border-radius: 6px; background: #074942; color: #fff; font-weight: 700; cursor: pointer; }
-  #status { margin-top: 10px; font-size: 12px; }
-  #status.ok { color: #1D7A5F; }
-  #status.err { color: #B23A32; }
+  /* Menux's own font, bundled with the app (works offline). OFL licence in assets/. */
+  @font-face { font-family: "IBM Plex Sans Arabic"; src: url("../assets/IBMPlexSansArabic-Regular.ttf") format("truetype"); font-weight: 400; font-display: block; }
+  @font-face { font-family: "IBM Plex Sans Arabic"; src: url("../assets/IBMPlexSansArabic-SemiBold.ttf") format("truetype"); font-weight: 600; font-display: block; }
+  @font-face { font-family: "IBM Plex Sans Arabic"; src: url("../assets/IBMPlexSansArabic-Bold.ttf") format("truetype"); font-weight: 700; font-display: block; }
+  body { font-family: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, sans-serif; padding: 20px; background: #FAF9F5; color: #222; margin: 0; }
+  .brand { display: block; height: 34px; width: auto; margin: 2px auto 14px; }
+  h2 { font-size: 16px; margin: 0 0 4px; font-weight: 700; }
+  p.hint { font-size: 12px; color: #6b6b6b; margin: 4px 0 0; line-height: 1.6; }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 4px; }
+  input, select { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #d8d8d8; border-radius: 6px; font-size: 13px; background: #fff; font-family: inherit; }
+  button { margin-top: 14px; width: 100%; padding: 10px; border: none; border-radius: 6px; background: #074942; color: #fff; font-weight: 700; cursor: pointer; font-family: inherit; font-size: 13px; }
+  button.secondary { background: #fff; color: #074942; border: 1px solid #074942; margin-top: 8px; }
+  button:disabled { opacity: .6; cursor: default; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #074942; outline-offset: 2px; }
+  .status { margin-top: 8px; font-size: 12px; min-height: 16px; }
+  .status.ok { color: #1D7A5F; }
+  .status.err { color: #B23A32; }
+  details summary { font-size: 12px; color: #6b6b6b; cursor: pointer; margin-top: 16px; }
 </style>
 </head>
 <body>
-  <h2>ربط وكيل الطباعة بحساب Menux</h2>
-  <p class="hint">افتح لوحة التحكم ← الإعدادات ← الطابعات ← إضافة طابعة ← شبكة (عبر وكيل)، ثم انسخ رمز الإقران والصقه هنا.</p>
+  <img class="brand" src="../assets/menux-logo.svg" alt="Menux">
+  <h2>ربط برنامج الطباعة بحساب Menux</h2>
+  <p class="hint">في لوحة التحكم: الإعدادات ← الطابعات ← إضافة طابعة ← «برنامج الطباعة Menux»، ثم أنشئ رمز الربط والصقه هنا.</p>
 
-  <label>رمز الإقران</label>
-  <input type="text" id="pairingToken" placeholder="pairing token">
+  <label for="pairingToken">رمز الربط</label>
+  <input type="text" id="pairingToken" placeholder="pairing token" dir="ltr" autocomplete="off">
 
-  <details style="margin-top:14px">
-    <summary style="font-size:12px;color:#777;cursor:pointer">خيارات متقدمة</summary>
-    <label>رابط الموقع</label>
+  <label for="printerName">الطابعة على هذا الجهاز</label>
+  <select id="printerName"><option value="">الطابعة الافتراضية في النظام</option></select>
+  <p class="hint">تُطبع عليها الطلبات حين لا يكون للطابعة عنوان IP في Menux (طابعات USB).</p>
+  <button type="button" class="secondary" id="testBtn">طباعة تجريبية</button>
+  <div class="status" id="testStatus" role="status"></div>
+
+  <details>
+    <summary>خيارات متقدمة</summary>
+    <label for="siteUrl">رابط الموقع</label>
     <input type="text" id="siteUrl" placeholder="https://menux.app" dir="ltr">
   </details>
 
-  <button id="saveBtn">حفظ</button>
-  <div id="status"></div>
+  <button type="button" id="saveBtn">حفظ</button>
+  <div class="status" id="status" role="status"></div>
 
   <script>
     (async function () {
+      var $ = function (id) { return document.getElementById(id); };
       var cfg = await window.menuxAgent.getConfig();
-      document.getElementById('siteUrl').value = cfg.siteUrl || '';
-      document.getElementById('pairingToken').value = cfg.pairingToken || '';
+      $('siteUrl').value = cfg.siteUrl || '';
+      $('pairingToken').value = cfg.pairingToken || '';
 
-      document.getElementById('saveBtn').addEventListener('click', async function () {
-        var siteUrl = document.getElementById('siteUrl').value.trim() || 'https://menux.app';
-        var pairingToken = document.getElementById('pairingToken').value.trim();
-        var status = document.getElementById('status');
+      var printers = await window.menuxAgent.listPrinters();
+      var sel = $('printerName');
+      printers.forEach(function (p) {
+        var o = document.createElement('option');
+        o.value = p.name;
+        o.textContent = p.displayName + (p.isDefault ? ' (الافتراضية)' : '');
+        sel.appendChild(o);
+      });
+      // a saved printer that's no longer installed stays visible, so it can be noticed and changed
+      if (cfg.printerName && !printers.some(function (p) { return p.name === cfg.printerName; })) {
+        var missing = document.createElement('option');
+        missing.value = cfg.printerName;
+        missing.textContent = cfg.printerName + ' (غير موجودة)';
+        sel.appendChild(missing);
+      }
+      sel.value = cfg.printerName || '';
+
+      $('testBtn').addEventListener('click', async function () {
+        var btn = this, st = $('testStatus');
+        btn.disabled = true;
+        st.className = 'status';
+        st.textContent = 'جارٍ الطباعة…';
+        var r = await window.menuxAgent.testPrint(sel.value);
+        btn.disabled = false;
+        st.className = 'status ' + (r.ok ? 'ok' : 'err');
+        st.textContent = r.ok ? 'أُرسلت صفحة الاختبار إلى الطابعة.' : ('تعذّرت الطباعة: ' + r.error);
+      });
+
+      $('saveBtn').addEventListener('click', async function () {
+        var siteUrl = $('siteUrl').value.trim() || 'https://menux.app';
+        var pairingToken = $('pairingToken').value.trim();
+        var status = $('status');
         if (!pairingToken) {
-          status.className = 'err';
-          status.textContent = 'الرجاء إدخال رمز الإقران.';
+          status.className = 'status err';
+          status.textContent = 'أدخل رمز الربط أولاً.';
           return;
         }
-        await window.menuxAgent.saveConfig({ siteUrl: siteUrl, pairingToken: pairingToken });
-        status.className = 'ok';
-        status.textContent = 'تم الحفظ — الوكيل يعمل الآن بالخلفية.';
+        await window.menuxAgent.saveConfig({ siteUrl: siteUrl, pairingToken: pairingToken, printerName: sel.value });
+        status.className = 'status ok';
+        status.textContent = 'حُفظ. البرنامج يعمل الآن في الخلفية ويطبع الطلبات وحده.';
       });
     })();
   </script>

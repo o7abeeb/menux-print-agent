@@ -16,6 +16,11 @@ const DEFAULTS = {
   siteUrl: 'https://menux.app', // the Menux platform this agent talks to (override only for staging/testing)
   pairingToken: '',  // issued by menux_printer_agent_pair (dash/printers.php "add printer" wizard)
   pollSeconds: 5,    // how often to check Menux for new jobs
+
+  // The printer installed on THIS computer that receipts go to when the
+  // printer in Menux has no IP (a USB printer). '' = the system default
+  // printer. Picked in the setup window.
+  printerName: '',
   // Printer IP:port comes from Menux itself (each job's printer_target
   // field) — the agent holds no local printer config of its own, so
   // adding/editing a printer in the dashboard needs no agent-side change.

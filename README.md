@@ -198,3 +198,27 @@ through the SignPath Foundation (signpath.org/foundation), which is how
 the Windows installer is meant to get signed so SmartScreen stops showing
 "Unknown publisher". Signing is not wired into CI until the Foundation
 approves the project; until then installers are unsigned.
+
+## 0.2 — the real receipt, USB printers, proper Arabic
+
+Menux now sends each job with `receipt_html` (the same receipt the dashboard
+prints: `include/menux-receipt.php` in the theme). `src/render.js` prints it:
+
+| Printer's target in Menux | What the agent does |
+|---|---|
+| empty | silent print to the printer picked in the setup window (or the system default) through its OS driver — USB thermal printers (e.g. Xprinter "POS-80"): driver handles paper and auto-cut |
+| an OS printer name (e.g. `POS-80`) | same, to that printer |
+| `IP[:port]` or `name.local[:port]` | renders the receipt off-screen at 576 dots (72mm @ 203dpi), sends it as an ESC/POS raster image (`GS v 0`), feeds and cuts — Arabic letters join correctly, unlike the old text mode |
+
+Jobs without `receipt_html` (an older Menux) keep the old plain-text network path.
+The setup window lists the computer's printers and has a "test print" button.
+
+Try the renderer without pairing:
+
+```
+npx electron tools/try-receipt.js receipt.html printer "POS-80"
+npx electron tools/try-receipt.js receipt.html image out.png
+```
+
+(From a VS Code terminal, clear `ELECTRON_RUN_AS_NODE` first — VS Code sets it,
+and it makes Electron start as plain Node.)
