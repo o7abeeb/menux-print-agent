@@ -9,6 +9,14 @@ on:
       - 'android/**'
       - '.github/workflows/android-ci.yml'
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Attach the APK to this existing release (e.g. v0.2.1), built with its version. Empty = artifact only."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
 
 jobs:
   apk:
@@ -28,12 +36,26 @@ jobs:
           KS: ${{ secrets.ANDROID_KEYSTORE_B64 }}
       - name: Build APK
         working-directory: android
-        run: gradle assembleRelease -PversionName="0.0.${GITHUB_RUN_NUMBER}-ci" -PversionCode=1 --stacktrace
+        run: |
+          if [ -n "$TAG" ]; then
+            V="${TAG#v}"; IFS=. read -r MA MI PA <<< "$V"; CODE=$(( MA * 10000 + MI * 100 + PA ))
+          else
+            V="0.0.${GITHUB_RUN_NUMBER}-ci"; CODE=1
+          fi
+          gradle assembleRelease -PversionName="$V" -PversionCode="$CODE" --stacktrace
         env:
           ANDROID_KEYSTORE_FILE: ${{ runner.temp }}/menux-print.p12
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          TAG: ${{ inputs.release_tag }}
       - uses: actions/upload-artifact@v4
         with:
           name: Menux-Print-apk
           path: android/app/build/outputs/apk/release/app-release.apk
+      - name: Attach to the release
+        if: inputs.release_tag != ''
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk Menux-Print.apk
+          gh release upload "${{ inputs.release_tag }}" Menux-Print.apk --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
