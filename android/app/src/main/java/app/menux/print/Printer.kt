@@ -7,7 +7,8 @@ import android.content.Context
  * wins (a network printer); otherwise the printer chosen in this app.
  */
 object Printer {
-    private val NET = Regex("^((?:\d{1,3}\.){3}\d{1,3}|[a-z0-9-]+(?:\.[a-z0-9-]+)*\.local)(?::(\d{1,5}))?$", RegexOption.IGNORE_CASE)
+    // "IP[:port]" or "name.local[:port]" -- same rule as the desktop agent
+    private val NET = Regex("""^((?:\d{1,3}\.){3}\d{1,3}|[a-z0-9-]+(?:\.[a-z0-9-]+)*\.local)(?::(\d{1,5}))?${'$'}""", RegexOption.IGNORE_CASE)
 
     fun parseNet(target: String?): Pair<String, Int>? {
         val m = NET.matchEntire(target.orEmpty().trim()) ?: return null
