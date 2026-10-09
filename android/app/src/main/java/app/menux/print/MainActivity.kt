@@ -111,12 +111,44 @@ class MainActivity : Activity() {
             registerReceiver(usbReceiver, IntentFilter(ACTION_USB_PERMISSION))
         }
         handleUsbIntent(intent)
+        handlePairIntent(intent)
         checkForUpdate()
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
         handleUsbIntent(intent)
+        handlePairIntent(intent)
+    }
+
+    /**
+     * menuxprint://pair?token=...&site=... from the dashboard's QR code (or its
+     * "open in the app" button on the same device): fills in the pairing
+     * token and the site. Only Menux sites are accepted, so a stray link
+     * can't point the app at another server.
+     */
+    private fun handlePairIntent(intent: Intent?) {
+        val src = intent ?: return
+        val uri = src.data ?: return
+        if (uri.scheme != "menuxprint" || uri.host != "pair") return
+        val token = uri.getQueryParameter("token").orEmpty().trim()
+        val site = uri.getQueryParameter("site").orEmpty().trim().trimEnd('/')
+        if (!PAIR_TOKEN.matches(token) || !PAIR_SITE.matches(site)) {
+            showLine(saveStatus, getString(R.string.pair_link_bad), R.color.err)
+            return
+        }
+        tokenInput.setText(token)
+        if (site.equals(Store.DEFAULT_SITE, ignoreCase = true)) {
+            siteInput.setText("")
+        } else {
+            siteInput.setText(site)
+            siteWrap.visibility = View.VISIBLE
+        }
+        store.token = token
+        store.siteUrl = site
+        src.data = null // a rotation/recreate must not re-apply it
+        showLine(saveStatus, getString(R.string.pair_link_ok), R.color.ok)
     }
 
     override fun onResume() {
@@ -534,6 +566,8 @@ class MainActivity : Activity() {
     }
 
     companion object {
+        private val PAIR_TOKEN = Regex("""^[A-Za-z0-9]{20,64}${'$'}""")
+        private val PAIR_SITE = Regex("""^https://([a-z0-9-]+\.)*menux\.app${'$'}""", RegexOption.IGNORE_CASE)
         private const val ACTION_USB_PERMISSION = "app.menux.print.USB_PERMISSION"
         private const val REQ_BLUETOOTH = 11
         private const val REQ_NOTIFICATIONS = 12

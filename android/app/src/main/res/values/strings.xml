@@ -42,4 +42,6 @@
     <string name="test_title">طباعة تجريبية — Test print</string>
     <string name="test_body">تطبيق الطباعة يعمل — Print app is working</string>
     <string name="cancel">إلغاء</string>
+    <string name="pair_link_ok">تم استلام رمز الربط من لوحة التحكم. اختر الطابعة ثم اضغط «حفظ وتشغيل».</string>
+    <string name="pair_link_bad">رابط الربط غير صالح. أنشئ رمز ربط جديداً من لوحة التحكم.</string>
 </resources>
