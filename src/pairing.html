@@ -41,6 +41,13 @@
 
   <details>
     <summary>خيارات متقدمة</summary>
+    <label for="printMode">طريقة الطباعة</label>
+    <select id="printMode">
+      <option value="auto">تلقائي (موصى به)</option>
+      <option value="raw">مباشرة إلى الطابعة الحرارية (ESC/POS)</option>
+      <option value="driver">عبر تعريف الطابعة في النظام</option>
+    </select>
+    <p class="hint">«تلقائي» يرسل الفاتورة مباشرة إلى طابعات الإيصالات فلا يؤثر عليها نوع التعريف المثبّت، ويستخدم التعريف لطابعات المكاتب.</p>
     <label for="siteUrl">رابط الموقع</label>
     <input type="text" id="siteUrl" placeholder="https://menux.app" dir="ltr">
   </details>
@@ -54,6 +61,7 @@
       var cfg = await window.menuxAgent.getConfig();
       $('siteUrl').value = cfg.siteUrl || '';
       $('pairingToken').value = cfg.pairingToken || '';
+      $('printMode').value = cfg.printMode || 'auto';
 
       var printers = await window.menuxAgent.listPrinters();
       var sel = $('printerName');
@@ -77,7 +85,7 @@
         btn.disabled = true;
         st.className = 'status';
         st.textContent = 'جارٍ الطباعة…';
-        var r = await window.menuxAgent.testPrint(sel.value);
+        var r = await window.menuxAgent.testPrint(sel.value, $('printMode').value);
         btn.disabled = false;
         st.className = 'status ' + (r.ok ? 'ok' : 'err');
         st.textContent = r.ok ? 'أُرسلت صفحة الاختبار إلى الطابعة.' : ('تعذّرت الطباعة: ' + r.error);
@@ -125,7 +133,7 @@
         btn.disabled = true;
         status.className = 'status';
         status.textContent = 'جارٍ الاتصال بالموقع…';
-        await window.menuxAgent.saveConfig({ siteUrl: siteUrl, pairingToken: pairingToken, printerName: sel.value });
+        await window.menuxAgent.saveConfig({ siteUrl: siteUrl, pairingToken: pairingToken, printerName: sel.value, printMode: $('printMode').value });
         var r = await window.menuxAgent.connectionStatus();
         btn.disabled = false;
         if (r && r.connected === true) {

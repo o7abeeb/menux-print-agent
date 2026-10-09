@@ -18,6 +18,7 @@
  */
 const { BrowserWindow } = require('electron');
 const { printToNetwork } = require('./printer');
+const { sendRaw, useRaw } = require('./rawprint');
 
 const PRINT_DOTS = 576;          // 72mm printable width at 203dpi (80mm roll)
 const CSS_PX_PER_MM = 96 / 25.4; // CSS pixel = 1/96 inch
@@ -157,6 +158,24 @@ async function printHtmlToNetwork(receiptHtml, host, port) {
   await printToNetwork(host, port, escposForImage(image), 15000);
 }
 
+/**
+ * An OS printer (USB etc.). mode 'auto' (default) / 'raw' / 'driver':
+ * receipt printers get the same raster ESC/POS as network printers, sent
+ * RAW through the OS so the installed driver can't garble it; office and
+ * virtual printers keep using their driver ('auto' tells them apart by name).
+ */
+async function printHtmlToOsPrinter(receiptHtml, deviceName, mode) {
+  let name = String(deviceName || '');
+  const probe = new BrowserWindow({ show: false, width: 100, height: 100, webPreferences: { offscreen: true, sandbox: true } });
+  let printers = [];
+  try { printers = await listPrinters(probe.webContents); } finally { if (!probe.isDestroyed()) probe.destroy(); }
+  if (name && printers.length && !printers.some((p) => p.name === name)) throw new Error('printer_not_found: ' + name);
+  if (!name) name = (printers.find((p) => p.isDefault) || {}).name || '';
+  if (!useRaw(mode, name)) return printHtmlToPrinter(receiptHtml, name);
+  const image = await renderToImage(receiptHtml);
+  await sendRaw(name, escposForImage(image));
+}
+
 /** "IP[:port]" / "host.local[:port]" = a network printer; anything else = an OS printer name. */
 function parseNetworkTarget(target) {
   const t = String(target || '').trim();
@@ -177,4 +196,4 @@ function testHtml(printerLabel) {
     + '<div style="margin-top:2mm;direction:ltr">' + esc(now) + '</div></div>';
 }
 
-module.exports = { printHtmlToPrinter, printHtmlToNetwork, parseNetworkTarget, listPrinters, testHtml, rasterFromImage, renderToImage, escposForImage };
+module.exports = { printHtmlToPrinter, printHtmlToOsPrinter, printHtmlToNetwork, parseNetworkTarget, listPrinters, testHtml, rasterFromImage, renderToImage, escposForImage };

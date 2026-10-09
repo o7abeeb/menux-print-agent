@@ -98,9 +98,9 @@ ipcMain.handle('get-config', () => store.load());
 ipcMain.handle('list-printers', (evt) => render.listPrinters(evt.sender));
 // Prints a local test page on the chosen printer -- checks the printer,
 // the driver and the paper/cut settings without involving Menux at all.
-ipcMain.handle('test-print', async (_evt, printerName) => {
+ipcMain.handle('test-print', async (_evt, printerName, printMode) => {
   try {
-    await render.printHtmlToPrinter(render.testHtml(printerName || 'Default printer'), printerName || '');
+    await render.printHtmlToOsPrinter(render.testHtml(printerName || 'Default printer'), printerName || '', printMode || store.load().printMode || 'auto');
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err.message };
@@ -172,7 +172,7 @@ async function printJob(job, cfg) {
   const net = render.parseNetworkTarget(target);
   if (job.receipt_html) {
     if (net) return render.printHtmlToNetwork(job.receipt_html, net.host, net.port);
-    return render.printHtmlToPrinter(job.receipt_html, target || cfg.printerName || '');
+    return render.printHtmlToOsPrinter(job.receipt_html, target || cfg.printerName || '', cfg.printMode || 'auto');
   }
   if (!net) throw new Error('no_printer_target');
   return printToNetwork(net.host, net.port, job.receipt_text || 'TEST PRINT', 8000, {

@@ -13,6 +13,7 @@ function configPath() {
 }
 
 const DEFAULTS = {
+  printMode: 'auto', // 'auto' | 'raw' | 'driver' -- see rawprint.js
   siteUrl: 'https://menux.app', // the Menux platform this agent talks to (override only for staging/testing)
   pairingToken: '',  // issued by menux_printer_agent_pair (dash/printers.php "add printer" wizard)
   pollSeconds: 5,    // how often to check Menux for new jobs
