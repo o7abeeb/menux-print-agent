@@ -99,28 +99,40 @@ async function printHtmlToPrinter(receiptHtml, deviceName) {
   }
 }
 
-/** NativeImage (BGRA) -> ESC/POS raster bytes (GS v 0), PRINT_DOTS wide, 1 bit per dot. */
+/**
+ * NativeImage (BGRA) -> ESC/POS raster bytes (GS v 0), PRINT_DOTS wide, 1 bit
+ * per dot. Blank rows above the first ink and below the last are dropped:
+ * the page's own white margins made auto-printed receipts longer than the
+ * same receipt printed by hand through the driver (which trims them).
+ */
 function rasterFromImage(image) {
   let img = image;
   if (img.getSize().width !== PRINT_DOTS) img = img.resize({ width: PRINT_DOTS, quality: 'best' });
   const { width, height } = img.getSize();
   const bmp = img.toBitmap(); // BGRA, row-major
   const bytesPerRow = Math.ceil(width / 8);
+  const dots = Buffer.alloc(bytesPerRow * height);
+  let first = -1;
+  let last = -1;
+  for (let y = 0; y < height; y++) {
+    let ink = false;
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      const a = bmp[i + 3] / 255;
+      // luminance over a white background; < 150 = burn a dot
+      const lum = (0.114 * bmp[i] + 0.587 * bmp[i + 1] + 0.299 * bmp[i + 2]) * a + 255 * (1 - a);
+      if (lum < 150) { dots[y * bytesPerRow + (x >> 3)] |= (0x80 >> (x & 7)); ink = true; }
+    }
+    if (ink) { if (first < 0) first = y; last = y; }
+  }
+  if (first < 0) return Buffer.alloc(0); // nothing to print
   const out = [];
   const ROWS_PER_BLOCK = 255; // some clones choke on taller single blocks
-  for (let y0 = 0; y0 < height; y0 += ROWS_PER_BLOCK) {
-    const rows = Math.min(ROWS_PER_BLOCK, height - y0);
+  for (let y0 = first; y0 <= last; y0 += ROWS_PER_BLOCK) {
+    const rows = Math.min(ROWS_PER_BLOCK, last + 1 - y0);
     const block = Buffer.alloc(8 + bytesPerRow * rows);
     block.set([0x1d, 0x76, 0x30, 0x00, bytesPerRow & 0xff, (bytesPerRow >> 8) & 0xff, rows & 0xff, (rows >> 8) & 0xff], 0);
-    for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < width; x++) {
-        const i = ((y0 + y) * width + x) * 4;
-        const a = bmp[i + 3] / 255;
-        // luminance over a white background; < 150 = burn a dot
-        const lum = (0.114 * bmp[i] + 0.587 * bmp[i + 1] + 0.299 * bmp[i + 2]) * a + 255 * (1 - a);
-        if (lum < 150) block[8 + y * bytesPerRow + (x >> 3)] |= (0x80 >> (x & 7));
-      }
-    }
+    dots.copy(block, 8, y0 * bytesPerRow, (y0 + rows) * bytesPerRow);
     out.push(block);
   }
   return Buffer.concat(out);
@@ -147,8 +159,9 @@ function escposForImage(image) {
   return Buffer.concat([
     Buffer.from([0x1b, 0x40]),             // ESC @  initialize
     rasterFromImage(image),
-    Buffer.from([0x1b, 0x64, 0x04]),       // ESC d 4  feed 4 lines past the last row
-    Buffer.from([0x1d, 0x56, 0x42, 0x00]), // GS V B 0  feed to the cutter and cut
+    // GS V B n: feed until the last printed row is at the cutter, plus n
+    // dots (~4mm), then cut -- the same small tail a hand-printed receipt has.
+    Buffer.from([0x1d, 0x56, 0x42, 0x20]),
   ]);
 }
 
