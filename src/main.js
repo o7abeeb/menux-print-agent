@@ -10,6 +10,10 @@ let tray = null;
 let setupWindow = null;
 let pollTimer = null;
 let lastError = '';
+// Result of the last poll: null = not tried yet, true = the site answered
+// with this token, false = it didn't (wrong site, revoked code, offline).
+let connected = null;
+let connError = '';
 let lastPrintedAt = null;
 let updateStatus = ''; // '', 'checking', 'available', 'downloading', 'ready', 'error'
 let polling = false; // one cycle at a time: printing can outlast the poll interval
@@ -104,10 +108,39 @@ ipcMain.handle('test-print', async (_evt, printerName) => {
 });
 ipcMain.handle('save-config', (_evt, config) => {
   store.save(Object.assign({}, store.load(), config));
+  connected = null;
+  connError = '';
   applyStartOnLoginSetting();
   restartPolling();
   return store.load();
 });
+// The setup window asks this after saving: did the site accept the code?
+ipcMain.handle('connection-status', async () => {
+  for (let i = 0; i < 40 && connected === null && isPaired(); i++) {
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  return { connected, error: connError, reason: connReason(connError) };
+});
+
+/** A pull error -> what the person should do about it. */
+function connReason(err) {
+  const e = String(err || '');
+  if (!e) return '';
+  if (/invalid_token/.test(e)) return 'invalid_code';
+  if (/bad_response_http_(400|404)/.test(e)) return 'wrong_site';
+  if (/rate_limited|http_429/.test(e)) return 'busy';
+  if (/firewall/.test(e)) return 'firewall';
+  if (/ENOTFOUND|ECONNREFUSED|ETIMEDOUT|fetch failed|network|EAI_AGAIN/i.test(e)) return 'offline';
+  return 'other';
+}
+
+const REASON_LABEL = {
+  invalid_code: 'Pairing code not accepted: create a new one in the dashboard',
+  wrong_site: 'Wrong site: paste the full pairing code from the dashboard',
+  busy: 'Site busy, retrying…',
+  firewall: 'Blocked by the site firewall',
+  offline: 'No internet connection, retrying…',
+};
 
 /**
  * One poll cycle: pull queued jobs, print each in turn, ack success/
@@ -157,10 +190,14 @@ async function pollCycle() {
   try {
     jobs = await api.pullJobs(siteUrl, pairingToken);
   } catch (err) {
-    lastError = 'pull_failed: ' + err.message;
+    connected = false;
+    connError = String(err.message || err);
+    lastError = '';
     updateTrayMenu();
     return;
   }
+  connected = true;
+  connError = '';
 
   for (const job of jobs) {
     try {
@@ -217,10 +254,17 @@ function updateStatusLabel() {
 function updateTrayMenu() {
   if (!tray) return;
   const paired = isPaired();
-  tray.setToolTip('Menux Print Agent — ' + (paired ? (lastError ? 'Error' : 'Running') : 'Not paired'));
+  const site = paired ? String(store.load().siteUrl || '').replace(/^https?:\/\//, '') : '';
+  const state = !paired ? 'Not paired'
+    : connected === true ? ('Connected ✓  ' + site)
+    : connected === false ? 'Not connected'
+    : 'Connecting…';
+  const reason = connected === false ? (REASON_LABEL[connReason(connError)] || connError) : '';
+  tray.setToolTip('Menux Print Agent — ' + (connected === true ? (lastError ? 'Error' : 'Connected') : state));
   const updLabel = updateStatusLabel();
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: paired ? 'Paired ✓' : 'Not paired', enabled: false },
+    { label: state, enabled: false },
+    ...(reason ? [{ label: reason, enabled: false }] : []),
     { label: lastPrintedAt ? ('Last print: ' + lastPrintedAt.toLocaleTimeString()) : 'No prints yet', enabled: false },
     ...(lastError ? [{ label: 'Error: ' + lastError, enabled: false }] : []),
     ...(updLabel ? [{

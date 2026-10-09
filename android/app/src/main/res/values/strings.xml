@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">Menux Print</string>
     <string name="title">ربط تطبيق الطباعة بحساب Menux</string>
-    <string name="hint_pair">في لوحة التحكم: الإعدادات ← الطابعات ← إضافة طابعة ← «برنامج الطباعة Menux»، ثم أنشئ رمز الربط والصقه هنا.</string>
+    <string name="hint_pair">في لوحة التحكم: الإعدادات ← الطابعات ← إضافة طابعة ← «برنامج الطباعة Menux»، ثم أنشئ رمز الربط وانسخه كاملاً والصقه هنا، أو صوّر رمز QR بالكاميرا.</string>
     <string name="token">رمز الربط</string>
     <string name="printer">الطابعة</string>
     <string name="t_usb">USB</string>
@@ -44,4 +44,7 @@
     <string name="cancel">إلغاء</string>
     <string name="pair_link_ok">تم استلام رمز الربط من لوحة التحكم. اختر الطابعة ثم اضغط «حفظ وتشغيل».</string>
     <string name="pair_link_bad">رابط الربط غير صالح. أنشئ رمز ربط جديداً من لوحة التحكم.</string>
+    <string name="status_connected">متصل بـ %1$s، بانتظار الطلبات</string>
+    <string name="err_invalid_code">لم يقبل الموقع رمز الربط. أنشئ رمزاً جديداً من لوحة التحكم والصقه كاملاً.</string>
+    <string name="err_wrong_site">هذا الموقع لا يعرف رمز الربط. انسخ الرمز كاملاً من لوحة التحكم (ينتهي باسم الموقع).</string>
 </resources>

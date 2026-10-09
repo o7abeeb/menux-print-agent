@@ -27,10 +27,11 @@
 <body>
   <img class="brand" src="../assets/menux-logo.svg" alt="Menux">
   <h2>ربط برنامج الطباعة بحساب Menux</h2>
-  <p class="hint">في لوحة التحكم: الإعدادات ← الطابعات ← إضافة طابعة ← «برنامج الطباعة Menux»، ثم أنشئ رمز الربط والصقه هنا.</p>
+  <p class="hint">في لوحة التحكم: الإعدادات ← الطابعات ← إضافة طابعة ← «برنامج الطباعة Menux»، ثم أنشئ رمز الربط وانسخه كاملاً والصقه هنا.</p>
 
   <label for="pairingToken">رمز الربط</label>
-  <input type="text" id="pairingToken" placeholder="pairing token" dir="ltr" autocomplete="off">
+  <input type="text" id="pairingToken" placeholder="pairing code" dir="ltr" autocomplete="off">
+  <p class="hint" id="codeSite" hidden></p>
 
   <label for="printerName">الطابعة على هذا الجهاز</label>
   <select id="printerName"><option value="">الطابعة الافتراضية في النظام</option></select>
@@ -82,18 +83,61 @@
         st.textContent = r.ok ? 'أُرسلت صفحة الاختبار إلى الطابعة.' : ('تعذّرت الطباعة: ' + r.error);
       });
 
+      // The dashboard's code is "<token>@<site host>": the site comes with it,
+      // so nobody has to type the site address by hand.
+      var CODE = /^([A-Za-z0-9]{20,64})@([a-z0-9-]+(?:\.[a-z0-9-]+)+)$/i;
+      function readCode() {
+        var v = $('pairingToken').value.trim();
+        var m = CODE.exec(v);
+        if (m) {
+          $('siteUrl').value = 'https://' + m[2].toLowerCase();
+          $('codeSite').textContent = 'سيرتبط بالموقع: ' + m[2].toLowerCase();
+          $('codeSite').hidden = false;
+          return m[1];
+        }
+        $('codeSite').hidden = true;
+        return v;
+      }
+      $('pairingToken').addEventListener('input', readCode);
+      if (cfg.pairingToken && cfg.siteUrl) {
+        $('codeSite').textContent = 'مربوط بالموقع: ' + String(cfg.siteUrl).replace(/^https?:\/\//, '');
+        $('codeSite').hidden = false;
+      }
+
+      var REASONS = {
+        invalid_code: 'لم يقبل الموقع رمز الربط. أنشئ رمزاً جديداً من لوحة التحكم والصقه كاملاً.',
+        wrong_site: 'هذا الموقع لا يعرف رمز الربط. انسخ الرمز كاملاً من لوحة التحكم (ينتهي باسم الموقع).',
+        busy: 'الموقع مشغول الآن، سيُعيد البرنامج المحاولة وحده.',
+        firewall: 'جدار الحماية في الموقع منع الاتصال. تواصل مع دعم Menux.',
+        offline: 'لا يوجد اتصال بالإنترنت. سيُعيد البرنامج المحاولة وحده.'
+      };
+
       $('saveBtn').addEventListener('click', async function () {
+        var pairingToken = readCode();
         var siteUrl = $('siteUrl').value.trim() || 'https://menux.app';
-        var pairingToken = $('pairingToken').value.trim();
         var status = $('status');
+        var btn = this;
         if (!pairingToken) {
           status.className = 'status err';
           status.textContent = 'أدخل رمز الربط أولاً.';
           return;
         }
+        btn.disabled = true;
+        status.className = 'status';
+        status.textContent = 'جارٍ الاتصال بالموقع…';
         await window.menuxAgent.saveConfig({ siteUrl: siteUrl, pairingToken: pairingToken, printerName: sel.value });
-        status.className = 'status ok';
-        status.textContent = 'حُفظ. البرنامج يعمل الآن في الخلفية ويطبع الطلبات وحده.';
+        var r = await window.menuxAgent.connectionStatus();
+        btn.disabled = false;
+        if (r && r.connected === true) {
+          status.className = 'status ok';
+          status.textContent = 'متصل. البرنامج يعمل الآن في الخلفية ويطبع الطلبات وحده.';
+        } else if (r && r.connected === false) {
+          status.className = 'status err';
+          status.textContent = REASONS[r.reason] || ('تعذّر الاتصال: ' + r.error);
+        } else {
+          status.className = 'status';
+          status.textContent = 'حُفظ. ما زال البرنامج يحاول الاتصال بالموقع…';
+        }
       });
     })();
   </script>

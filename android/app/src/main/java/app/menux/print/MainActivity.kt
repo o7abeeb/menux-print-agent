@@ -394,8 +394,18 @@ class MainActivity : Activity() {
 
     /** Writes the screen into the settings the service reads. */
     private fun applyToStore() {
-        store.token = tokenInput.text.toString()
-        store.siteUrl = siteInput.text.toString()
+        // The dashboard's code is "<token>@<site host>": take the site from it.
+        val code = PAIR_CODE.matchEntire(tokenInput.text.toString().trim())
+        if (code != null) {
+            store.token = code.groupValues[1]
+            store.siteUrl = "https://" + code.groupValues[2].lowercase()
+            tokenInput.setText(store.token)
+            siteInput.setText(if (store.siteUrl == Store.DEFAULT_SITE) "" else store.siteUrl)
+            if (store.siteUrl != Store.DEFAULT_SITE) siteWrap.visibility = View.VISIBLE
+        } else {
+            store.token = tokenInput.text.toString()
+            store.siteUrl = siteInput.text.toString()
+        }
         store.transport = currentTransport()
         store.usbVendor = selUsbVendor
         store.usbProduct = selUsbProduct
@@ -418,9 +428,11 @@ class MainActivity : Activity() {
         val s = Store(this)
         runStatus.text = when {
             !s.enabled -> getString(R.string.status_off)
+            s.lastError.contains("invalid_token") -> getString(R.string.err_invalid_code)
+            Regex("bad_response_http_(400|404)").containsMatchIn(s.lastError) -> getString(R.string.err_wrong_site)
             s.lastError.isNotEmpty() -> getString(R.string.status_error, s.lastError)
             s.lastPrintedAt > 0 -> getString(R.string.status_last, DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(s.lastPrintedAt)))
-            else -> getString(R.string.status_running)
+            else -> getString(R.string.status_connected, s.siteUrl.removePrefix("https://"))
         }
         runStatus.setTextColor(color(if (s.enabled && s.lastError.isEmpty()) R.color.ok else if (s.enabled) R.color.err else R.color.muted))
     }
@@ -567,6 +579,7 @@ class MainActivity : Activity() {
 
     companion object {
         private val PAIR_TOKEN = Regex("""^[A-Za-z0-9]{20,64}${'$'}""")
+        private val PAIR_CODE = Regex("""^([A-Za-z0-9]{20,64})@([a-z0-9-]+(?:\.[a-z0-9-]+)+)${'$'}""", RegexOption.IGNORE_CASE)
         private val PAIR_SITE = Regex("""^https://([a-z0-9-]+\.)*menux\.app${'$'}""", RegexOption.IGNORE_CASE)
         private const val ACTION_USB_PERMISSION = "app.menux.print.USB_PERMISSION"
         private const val REQ_BLUETOOTH = 11
