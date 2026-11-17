@@ -288,6 +288,14 @@ function updateTrayMenu() {
   ]));
 }
 
+// One copy only: two running agents would both poll and print every order
+// twice. Opening the app again just brings up the setup window.
+if (!app.requestSingleInstanceLock()) {
+  app.exit(0);
+} else {
+  app.on('second-instance', () => { if (app.isReady()) openSetupWindow(); });
+}
+
 app.whenReady().then(() => {
   // Electron requires a real icon file; a 16x16 blank PNG is provided
   // under assets/ so the app runs out of the box -- swap in a real
