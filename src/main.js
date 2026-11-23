@@ -18,6 +18,41 @@ let lastPrintedAt = null;
 let updateStatus = ''; // '', 'checking', 'available', 'downloading', 'ready', 'error'
 let polling = false; // one cycle at a time: printing can outlast the poll interval
 
+// Several Menux printers on this one app (0.4): Menux needs the names of
+// the printers installed here (its "printer on this device" picker), and
+// the tray lists which Menux printer goes where.
+let localPrinters = null;   // names read from the OS, null = not read yet / failed
+let lastPrinterRead = 0;
+let reportedKey = '';       // the list Menux last received (JSON), '' = not yet
+let reportedAt = 0;
+let served = null;          // [{ name, target }] from Menux, null = unknown
+let lastServedAt = 0;
+const PRINTER_READ_MS = 60 * 1000;      // printer added on the PC -> in the dashboard within a minute
+const REPORT_REFRESH_MS = 30 * 60 * 1000;
+const SERVED_REFRESH_MS = 60 * 1000;
+
+/** Printer names installed on this computer, via a short-lived hidden window. */
+async function readLocalPrinters() {
+  let win = null;
+  try {
+    win = new BrowserWindow({ show: false, width: 100, height: 100 });
+    await win.loadURL('about:blank');
+    const list = await render.listPrinters(win.webContents);
+    return list.map((p) => String(p.name || '')).filter(Boolean).slice(0, 30);
+  } catch (e) {
+    return null;
+  } finally {
+    if (win && !win.isDestroyed()) win.destroy();
+  }
+}
+
+function resetReportState() {
+  reportedKey = '';
+  reportedAt = 0;
+  served = null;
+  lastServedAt = 0;
+}
+
 function isPaired() {
   const c = store.load();
   return !!(c.siteUrl && c.pairingToken);
@@ -110,6 +145,7 @@ ipcMain.handle('save-config', (_evt, config) => {
   store.save(Object.assign({}, store.load(), config));
   connected = null;
   connError = '';
+  resetReportState(); // a new pairing code = a new device in Menux: report again
   applyStartOnLoginSetting();
   restartPolling();
   return store.load();
@@ -186,9 +222,25 @@ async function pollCycle() {
   const { siteUrl, pairingToken } = cfg;
   if (!siteUrl || !pairingToken) return;
 
+  const now = Date.now();
+  if (now - lastPrinterRead >= PRINTER_READ_MS) {
+    lastPrinterRead = now;
+    const list = await readLocalPrinters();
+    if (list) localPrinters = list;
+  }
+  const extra = {};
+  if (localPrinters) {
+    const key = JSON.stringify(localPrinters);
+    if (key !== reportedKey || now - reportedAt >= REPORT_REFRESH_MS) extra.printers = key;
+  }
+  if (now - lastServedAt >= SERVED_REFRESH_MS) extra.want_served = '1';
+
   let jobs;
   try {
-    jobs = await api.pullJobs(siteUrl, pairingToken);
+    const res = await api.pullJobs(siteUrl, pairingToken, extra);
+    jobs = res.jobs;
+    if (extra.printers) { reportedKey = extra.printers; reportedAt = now; }
+    if (extra.want_served) { lastServedAt = now; if (res.served) served = res.served; }
   } catch (err) {
     connected = false;
     connError = String(err.message || err);
@@ -262,9 +314,17 @@ function updateTrayMenu() {
   const reason = connected === false ? (REASON_LABEL[connReason(connError)] || connError) : '';
   tray.setToolTip('Menux Print Agent — ' + (connected === true ? (lastError ? 'Error' : 'Connected') : state));
   const updLabel = updateStatusLabel();
+  // "Kitchen printer → POS-58": where each Menux printer of this device prints.
+  const appPrinter = store.load().printerName || 'default printer';
+  const servedItems = (paired && served && served.length) ? [
+    { type: 'separator' },
+    { label: 'Prints for:', enabled: false },
+    ...served.map((p) => ({ label: '  ' + p.name + '  →  ' + (String(p.target || '').trim() || appPrinter), enabled: false })),
+  ] : [];
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: state, enabled: false },
     ...(reason ? [{ label: reason, enabled: false }] : []),
+    ...servedItems,
     { label: lastPrintedAt ? ('Last print: ' + lastPrintedAt.toLocaleTimeString()) : 'No prints yet', enabled: false },
     ...(lastError ? [{ label: 'Error: ' + lastError, enabled: false }] : []),
     ...(updLabel ? [{

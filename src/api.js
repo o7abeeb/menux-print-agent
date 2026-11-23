@@ -40,9 +40,18 @@ async function postForm(siteUrl, fields) {
   return json.data;
 }
 
-/** Pull up to 20 queued jobs addressed to this agent's printers. */
-function pullJobs(siteUrl, token) {
-  return postForm(siteUrl, { action: 'menux_printer_agent_pull_jobs', token }).then((d) => d.jobs || []);
+/**
+ * Pull up to 20 queued jobs addressed to this agent's printers.
+ * `extra` (0.4+): `printers` = JSON list of the printer names installed on
+ * this computer (Menux shows them as a picker when a printer is added to
+ * this device), `want_served` = '1' to also get `served`: the Menux
+ * printers this agent prints for (shown in the tray menu). Older Menux
+ * sites ignore both.
+ * Resolves to { jobs, served } (served is null when not asked/answered).
+ */
+function pullJobs(siteUrl, token, extra) {
+  return postForm(siteUrl, Object.assign({ action: 'menux_printer_agent_pull_jobs', token }, extra || {}))
+    .then((d) => ({ jobs: d.jobs || [], served: Array.isArray(d.served) ? d.served : null }));
 }
 
 /** Report a job's outcome back to Menux. */
